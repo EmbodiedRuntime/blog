@@ -1,0 +1,76 @@
+---
+// Renders a box-and-arrow diagram from node and edge lists. Pure SVG, theme-aware.
+// Extra SVG can be passed through slots: `back` is drawn behind everything (frames, lanes),
+// the default slot on top of nodes (badges, overlays, annotations).
+import './diagram.css';
+import { arrowize, edgeGeometry, nodeBox, stepAttrs, type GEdge, type GNode } from './graph';
+
+interface Props {
+  nodes: GNode[];
+  edges: GEdge[];
+  width: number;
+  height: number;
+  label: string;
+  /** Minimum rendered width in px; on narrow screens the figure scrolls instead of shrinking. */
+  minWidth?: number;
+  class?: string;
+  /** Left edge of the viewBox, to crop empty margin so the drawing lines up with its caption. */
+  x0?: number;
+}
+
+const { nodes, edges, width, height, label, minWidth, class: cls, x0 = 0 } = Astro.props;
+const byId = new Map(nodes.map((n) => [n.id, n]));
+---
+
+<div class:list={['dg-scroll', cls]}>
+  <svg
+    class="dg"
+    viewBox={`${x0} 0 ${width} ${height}`}
+    role="img"
+    aria-label={label}
+    style={minWidth ? `min-width:${minWidth}px` : undefined}
+  >
+
+    <slot name="back" />
+
+    {
+      edges.map((e) => {
+        const g = edgeGeometry(byId, e);
+        const tone = e.tone ?? 'muted';
+        const a = arrowize(g.d);
+        return (
+          <g class:list={['dg-edge', `dg-tone-${tone}`, { 'dg-dashed': e.dashed }]} {...stepAttrs(e)}>
+            <path d={a.d} />
+            {a.head && <path class={`dg-head dg-head-${tone}`} d={a.head} />}
+            {e.label && (
+              <text class="dg-edge-label" x={g.label.x} y={g.label.y} text-anchor="middle" dominant-baseline="middle">
+                {e.label}
+              </text>
+            )}
+          </g>
+        );
+      })
+    }
+
+    {
+      nodes.map((n) => {
+        const b = nodeBox(n);
+        return (
+          <g class:list={['dg-node', `dg-${n.kind ?? 'default'}`, n.className]} data-node={n.id} {...stepAttrs(n)}>
+            <rect x={b.x} y={b.y} width={b.w} height={b.h} rx="9" />
+            <text class="dg-label" x={n.x} y={n.sub ? n.y - 3 : n.y + 5} text-anchor="middle">
+              {n.label}
+            </text>
+            {n.sub && (
+              <text class="dg-sub" x={n.x} y={n.y + 13} text-anchor="middle">
+                {n.sub}
+              </text>
+            )}
+          </g>
+        );
+      })
+    }
+
+    <slot />
+  </svg>
+</div>

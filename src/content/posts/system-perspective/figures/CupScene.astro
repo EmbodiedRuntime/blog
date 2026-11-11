@@ -1,0 +1,222 @@
+---
+// The running example, animated (top-down view): put the cup on the tray; the cup is nudged mid-reach.
+// Left: grasp is a blocking call — the gripper reaches the old position, closes on nothing, then re-plans.
+// Right: grasp is a running task — a "cup moved" event updates its target and the gripper follows.
+// Pure SVG (SMIL) animation on a 9 s loop; with reduced motion it rests on the final frame.
+import '../../../../components/diagram/diagram.css';
+
+const DUR = 9;
+const kt = (ts: number[]) => ts.map((t) => (t / DUR).toFixed(3)).join(';');
+const pts = (p: number[][]) => p.map(([x, y]) => `${x} ${y}`).join(';');
+
+const base = [40, 156];
+const cupStart = [92, 66];
+const cupMoved = [142, 128];
+const tray = [246, 94];
+
+type Status = { from: number; to: number; text: string; tone?: 'fail' | 'ok' | 'accent' };
+type Fingers = { t: number[]; l: string; r: string };
+type Panel = {
+  fingers: Fingers;
+  title: string;
+  sub: string;
+  grip: { t: number[]; p: number[][] };
+  cup: { t: number[]; p: number[][] };
+  ghost: boolean;
+  status: Status[];
+};
+
+const nudge = { t: [0, 1.4, 1.8, DUR], p: [cupStart, cupStart, cupMoved, cupMoved] };
+
+const panels: Panel[] = [
+  {
+    fingers: {
+      // open → closes on empty space at the old position → reopens → closes on the cup → releases over the tray
+      t: [0, 2.2, 2.6, 3.4, 5.8, 6.1, 7.2, 7.5, DUR],
+      l: '-20;-20;-8;-20;-20;-17;-17;-20;-20',
+      r: '14;14;2;14;14;11;11;14;14',
+    },
+    title: 'Grasp as a blocking call',
+    sub: 'the call returns only when the reach is over',
+    grip: {
+      t: [0, 2.2, 3.4, 4.6, 5.8, 7.2, DUR],
+      p: [base, cupStart, cupStart, cupStart, cupMoved, tray, tray],
+    },
+    cup: { t: [...nudge.t.slice(0, 3), 5.8, 7.2, DUR], p: [cupStart, cupStart, cupMoved, cupMoved, tray, tray] },
+    ghost: true,
+    status: [
+      { from: 0, to: 2.2, text: 'grasp(cup) running…' },
+      { from: 2.2, to: 3.4, text: 'missed: the cup moved', tone: 'fail' },
+      { from: 3.4, to: 4.6, text: 'look again, re-plan' },
+      { from: 4.6, to: 7.2, text: 'grasp(cup) again' },
+      { from: 7.2, to: DUR, text: 'placed, late', tone: 'ok' },
+    ],
+  },
+  {
+    fingers: {
+      t: [0, 2.9, 3.2, 4.1, 4.4, DUR],
+      l: '-20;-20;-17;-17;-20;-20',
+      r: '14;14;11;11;14;14',
+    },
+    title: 'Grasp as a running task',
+    sub: 'an event can update it while it runs',
+    grip: {
+      t: [0, 1.8, 2.9, 4.1, DUR],
+      p: [base, [76, 96], cupMoved, tray, tray],
+    },
+    cup: { t: [...nudge.t.slice(0, 3), 2.9, 4.1, DUR], p: [cupStart, cupStart, cupMoved, cupMoved, tray, tray] },
+    ghost: false,
+    status: [
+      { from: 0, to: 1.8, text: 'task: grasp(cup)' },
+      { from: 1.8, to: 2.9, text: 'cup moved → update target', tone: 'accent' },
+      { from: 2.9, to: 4.1, text: 'place(tray)' },
+      { from: 4.1, to: DUR, text: 'done', tone: 'ok' },
+    ],
+  },
+];
+
+// Visibility over [from, to) within the loop, as a discrete opacity animation.
+const show = (from: number, to: number) => {
+  const values: number[] = [];
+  const times: number[] = [];
+  if (from > 0) {
+    values.push(0);
+    times.push(0);
+  }
+  values.push(1);
+  times.push(from);
+  if (to < DUR) {
+    values.push(0);
+    times.push(to);
+  }
+  return { values: values.join(';'), keyTimes: kt(times) };
+};
+---
+
+<div class="dg-panels cup-scene" style="--dg-cols:2">
+  {
+    panels.map((p) => (
+      <div>
+        <p class="dg-panel-title">{p.title}</p>
+        <p class="dg-panel-sub">{p.sub}</p>
+        <svg class="dg scene" viewBox="0 0 300 230" role="img" aria-label={`${p.title}: ${p.status.map((s) => s.text).join(', ')}.`}>
+          <rect class="table" x="8" y="8" width="284" height="180" rx="12" />
+          <rect class="tray" x={tray[0] - 32} y={tray[1] - 28} width="64" height="56" rx="8" />
+          <text class="dg-note" x={tray[0]} y={tray[1] + 44} text-anchor="middle">tray</text>
+
+          {/* nudge arrow */}
+          <g class="nudge" opacity="0">
+            <animate attributeName="opacity" calcMode="discrete" dur={`${DUR}s`} repeatCount="indefinite" {...show(1.1, 1.9)} />
+            <path d="M74,44 L92,60" />
+            <path class="head" d="M98,66 L86,62 L94,54 Z" />
+            <text x="56" y="38">nudge</text>
+          </g>
+
+          {p.ghost && (
+            <g class="ghost" opacity="0">
+              <animate attributeName="opacity" calcMode="discrete" dur={`${DUR}s`} repeatCount="indefinite" {...show(1.8, 3.4)} />
+              <circle cx={cupStart[0]} cy={cupStart[1]} r="11" />
+              <text x={cupStart[0] + 16} y={cupStart[1] - 10}>old position</text>
+            </g>
+          )}
+
+          <circle class="cup" r="11" cx={cupStart[0]} cy={cupStart[1]}>
+            <animate attributeName="cx" dur={`${DUR}s`} repeatCount="indefinite" values={p.cup.p.map((q) => q[0]).join(';')} keyTimes={kt(p.cup.t)} />
+            <animate attributeName="cy" dur={`${DUR}s`} repeatCount="indefinite" values={p.cup.p.map((q) => q[1]).join(';')} keyTimes={kt(p.cup.t)} />
+          </circle>
+
+          <g class="gripper">
+            <animateTransform attributeName="transform" type="translate" dur={`${DUR}s`} repeatCount="indefinite" values={pts(p.grip.p)} keyTimes={kt(p.grip.t)} />
+            <rect class="palm" x="-20" y="14" width="40" height="8" rx="3" />
+            <rect class="wrist" x="-5" y="22" width="10" height="12" rx="2" />
+            <rect class="finger" x="-20" y="-14" width="6" height="30" rx="2">
+              <animate attributeName="x" dur={`${DUR}s`} repeatCount="indefinite" calcMode="linear" values={p.fingers.l} keyTimes={kt(p.fingers.t)} />
+            </rect>
+            <rect class="finger" x="14" y="-14" width="6" height="30" rx="2">
+              <animate attributeName="x" dur={`${DUR}s`} repeatCount="indefinite" calcMode="linear" values={p.fingers.r} keyTimes={kt(p.fingers.t)} />
+            </rect>
+          </g>
+
+          {p.status.map((s) => (
+            <text class={`status ${s.tone ?? ''}`} x="150" y="216" text-anchor="middle" opacity="0">
+              <animate attributeName="opacity" calcMode="discrete" dur={`${DUR}s`} repeatCount="indefinite" {...show(s.from, s.to)} />
+              {s.text}
+            </text>
+          ))}
+        </svg>
+      </div>
+    ))
+  }
+</div>
+
+<script>
+  // Respect reduced motion: stop every scene on its final frame.
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    document.querySelectorAll<SVGSVGElement>('.cup-scene svg').forEach((svg) => {
+      svg.pauseAnimations();
+      svg.setCurrentTime(8.9);
+    });
+  }
+</script>
+
+<style>
+  .table {
+    fill: var(--surface);
+    stroke: var(--border);
+  }
+  .tray {
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 2;
+    stroke-dasharray: 5 4;
+  }
+  .cup {
+    fill: color-mix(in srgb, var(--accent) 35%, var(--bg));
+    stroke: var(--accent);
+    stroke-width: 2;
+  }
+  .ghost circle {
+    fill: none;
+    stroke: var(--dg-fail);
+    stroke-width: 1.5;
+    stroke-dasharray: 3 3;
+  }
+  .ghost text {
+    font-size: 11px;
+    fill: var(--dg-fail) !important;
+  }
+  .gripper .palm,
+  .gripper .wrist {
+    fill: var(--muted);
+  }
+  .gripper .finger {
+    fill: var(--fg);
+  }
+  .nudge path {
+    fill: none;
+    stroke: var(--dg-warn);
+    stroke-width: 2.5;
+  }
+  .nudge .head {
+    fill: var(--dg-warn);
+    stroke: none;
+  }
+  .nudge text {
+    font-size: 11px;
+    font-weight: 700;
+    fill: var(--dg-warn) !important;
+  }
+  .status {
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .status.fail {
+    fill: var(--dg-fail) !important;
+  }
+  .status.ok {
+    fill: var(--dg-ok) !important;
+  }
+  .status.accent {
+    fill: var(--accent) !important;
+  }
+</style>

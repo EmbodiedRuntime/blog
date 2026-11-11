@@ -1,0 +1,82 @@
+---
+// Expressiveness: the same task family needs control structures of increasing richness.
+import Graph from '../../../../components/diagram/Graph.astro';
+import type { GEdge, GNode } from '../../../../components/diagram/graph';
+
+const W = 300;
+const H = 232;
+const X = W / 2;
+
+const panels: { title: string; sub: string; nodes: GNode[]; edges: GEdge[] }[] = [
+  {
+    title: 'Single path',
+    sub: 'One fixed route from input to output.',
+    nodes: [
+      { id: 'obs', x: X, y: 30, w: 130, h: 38, label: 'Observation', kind: 'io' },
+      { id: 'policy', x: X, y: 116, w: 130, label: 'Policy', kind: 'model' },
+      { id: 'act', x: X, y: 202, w: 130, h: 38, label: 'Action', kind: 'io' },
+    ],
+    edges: [
+      { from: 'obs', to: 'policy' },
+      { from: 'policy', to: 'act' },
+    ],
+  },
+  {
+    title: 'Branches and loops',
+    sub: 'Conditions pick a path; failures loop back.',
+    nodes: [
+      { id: 'detect', x: X + 20, y: 30, w: 120, h: 36, label: 'Detect', kind: 'program' },
+      { id: 'grasp', x: X + 20, y: 87, w: 120, h: 36, label: 'Grasp', kind: 'program' },
+      { id: 'check', x: X + 20, y: 144, w: 120, h: 36, label: 'Grasped?', kind: 'runtime' },
+      { id: 'place', x: X + 20, y: 202, w: 120, h: 36, label: 'Place', kind: 'program' },
+    ],
+    edges: [
+      { from: 'detect', to: 'grasp' },
+      { from: 'grasp', to: 'check' },
+      { from: 'check', to: 'place', label: 'yes' },
+      { from: 'check', to: 'detect', d: `M${X - 43},144 C${X - 96},144 ${X - 96},30 ${X - 43},30`, labelAt: { x: X - 74, y: 87 }, label: 'no', tone: 'accent' },
+    ],
+  },
+  {
+    title: 'Concurrency and events',
+    sub: 'Tasks run side by side; events redirect them.',
+    nodes: [
+      { id: 'detect', x: 82, y: 30, w: 104, h: 36, label: 'Detect', kind: 'program' },
+      { id: 'grasp', x: 82, y: 116, w: 104, h: 36, label: 'Grasp', kind: 'program' },
+      { id: 'place', x: 82, y: 202, w: 104, h: 36, label: 'Place', kind: 'program' },
+      { id: 'monitor', x: 228, y: 62, w: 92, h: 44, label: 'Slip', sub: 'monitor', kind: 'runtime' },
+      { id: 'replan', x: 228, y: 170, w: 92, h: 44, label: 'VLM', sub: 'replan', kind: 'model' },
+    ],
+    edges: [
+      { from: 'detect', to: 'grasp' },
+      { from: 'grasp', to: 'place' },
+      { from: 'monitor', to: 'replan', label: 'slip!', tone: 'accent', dashed: true },
+      { from: 'replan', to: 'grasp', label: 'update', tone: 'accent' },
+    ],
+  },
+];
+---
+
+<div class="dg-panels dg-boxed" style="--dg-cols:3">
+  {
+    panels.map((p) => (
+      <div>
+        <p class="dg-panel-title">{p.title}</p>
+        <p class="dg-panel-sub">{p.sub}</p>
+        <Graph nodes={p.nodes} edges={p.edges} width={W} height={H} label={`${p.title}: ${p.sub}`}>
+          {p.title.startsWith('Concurrency') && (
+            <rect slot="back" x="174" y="32" width="108" height="168" rx="12" class="lane" />
+          )}
+        </Graph>
+      </div>
+    ))
+  }
+</div>
+
+<style>
+  .lane {
+    fill: none;
+    stroke: var(--border);
+    stroke-dasharray: 3 4;
+  }
+</style>

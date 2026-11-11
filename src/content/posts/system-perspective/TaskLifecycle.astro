@@ -1,0 +1,224 @@
+---
+// Interactive state machine for an asynchronous robot task.
+// Self-contained: markup + scoped CSS + a custom element that drives it.
+// Multiple instances on one page are independent.
+import { arrowize } from '../../../components/diagram/graph';
+
+type Node = { id: string; label: string; x: number; y: number; terminal?: boolean };
+type Edge = { from: string; to: string; d: string; dashed?: boolean };
+
+const nodes: Node[] = [
+  { id: 'pending', label: 'pending', x: 70, y: 110 },
+  { id: 'running', label: 'running', x: 230, y: 110 },
+  { id: 'cancelling', label: 'cancelling', x: 400, y: 180 },
+  { id: 'succeeded', label: 'succeeded', x: 570, y: 40, terminal: true },
+  { id: 'failed', label: 'failed', x: 570, y: 110, terminal: true },
+  { id: 'cancelled', label: 'cancelled', x: 570, y: 180, terminal: true },
+];
+
+const edges: Edge[] = [
+  { from: 'pending', to: 'running', d: 'M122,110 L176,110' },
+  { from: 'running', to: 'succeeded', d: 'M282,104 C390,104 420,40 516,40' },
+  { from: 'running', to: 'failed', d: 'M282,110 L516,110' },
+  { from: 'running', to: 'cancelling', d: 'M282,116 C320,116 320,180 346,180' },
+  { from: 'cancelling', to: 'cancelled', d: 'M452,180 L516,180' },
+  { from: 'cancelling', to: 'succeeded', d: 'M412,162 C430,90 470,52 516,46', dashed: true },
+  { from: 'pending', to: 'cancelled', d: 'M70,128 C70,222 560,230 570,200' },
+  { from: 'pending', to: 'failed', d: 'M70,92 C70,62 470,64 522,98' },
+  { from: 'cancelling', to: 'failed', d: 'M444,166 C480,150 500,136 526,128' },
+];
+---
+
+<task-lifecycle class="lifecycle">
+  <svg viewBox="0 0 640 230" role="img" aria-label="Task lifecycle state machine">
+    {
+      edges.map((e) => {
+        const a = arrowize(e.d);
+        return (
+          <g class:list={['edge', { dashed: e.dashed }]} data-edge={`${e.from}>${e.to}`}>
+            <path class="line" d={a.d} />
+            <path class="head" d={a.head} />
+          </g>
+        );
+      })
+    }
+    {
+      nodes.map((n) => (
+        <g class:list={['node', { terminal: n.terminal }]} data-node={n.id}>
+          <rect x={n.x - 52} y={n.y - 18} width="104" height="36" rx="18" />
+          <text x={n.x} y={n.y + 5} text-anchor="middle">
+            {n.label}
+          </text>
+        </g>
+      ))
+    }
+  </svg>
+
+  <div class="controls" data-controls></div>
+  <ol class="log" data-log aria-live="polite"></ol>
+</task-lifecycle>
+
+<style>
+  .lifecycle {
+    display: block;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem;
+    background: var(--surface);
+  }
+  svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .edge {
+    opacity: 0.45;
+  }
+  .edge .line {
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 1.5;
+  }
+  .edge .head {
+    fill: var(--muted);
+  }
+  .edge.dashed .line {
+    stroke-dasharray: 5 4;
+  }
+  .edge.taken {
+    opacity: 1;
+  }
+  .edge.taken .line {
+    stroke: var(--accent);
+    stroke-width: 2.5;
+  }
+  .edge.taken .head {
+    fill: var(--accent);
+  }
+  .node rect {
+    fill: var(--bg);
+    stroke: var(--muted);
+    stroke-width: 1.5;
+  }
+  .node.terminal rect {
+    stroke-dasharray: 3 3;
+  }
+  .node text {
+    fill: var(--fg);
+    font: 500 14px var(--font-mono);
+  }
+  .node.active rect {
+    fill: var(--accent);
+    stroke: var(--accent);
+  }
+  .node.active text {
+    fill: var(--accent-fg);
+  }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+  .controls :global(button) {
+    font: 500 0.85rem var(--font-mono);
+    padding: 0.35rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--fg);
+    cursor: pointer;
+  }
+  .controls :global(button:hover) {
+    border-color: var(--accent);
+  }
+  .log {
+    margin: 0.75rem 0 0;
+    padding: 0.5rem 0.75rem 0.5rem 2rem;
+    min-height: 4.5rem;
+    max-height: 9rem;
+    overflow-y: auto;
+    font: 0.8rem/1.5 var(--font-mono);
+    color: var(--muted);
+    background: var(--bg);
+    border-radius: 6px;
+  }
+</style>
+
+<script>
+  type Transition = { event: string; to: string; note: string };
+
+  const TRANSITIONS: Record<string, Transition[]> = {
+    pending: [
+      { event: 'start', to: 'running', note: 'Arm acquired; the skill starts its local control loop.' },
+      { event: 'cancel', to: 'cancelled', note: 'Cancelled before execution — nothing to stop.' },
+      { event: 'cannot start', to: 'failed', note: 'The arm stayed busy past the wait timeout; nothing moved.' },
+    ],
+    running: [
+      { event: 'goal reached', to: 'succeeded', note: 'Controller reports success; the runtime still has to verify it.' },
+      { event: 'fault', to: 'failed', note: 'Contact anomaly handled locally, then reported upward.' },
+      { event: 'request cancel', to: 'cancelling', note: 'Cancel requested. The arm is still moving.' },
+    ],
+    cancelling: [
+      { event: 'stopped safely', to: 'cancelled', note: 'Arm decelerated and released; the resource is free.' },
+      { event: 'finished first', to: 'succeeded', note: 'The motion completed before the stop took effect.' },
+      { event: 'stop failed', to: 'failed', note: 'The stop itself failed; this is reported, not hidden as cancelled.' },
+    ],
+  };
+
+  class TaskLifecycle extends HTMLElement {
+    private state = 'pending';
+    private step = 0;
+
+    connectedCallback() {
+      this.render(null, 'Task created.');
+    }
+
+    private fire(t: Transition) {
+      const from = this.state;
+      this.state = t.to;
+      this.render(`${from}>${t.to}`, `${t.event} → ${t.to}. ${t.note}`);
+    }
+
+    private render(takenEdge: string | null, message: string) {
+      this.querySelectorAll('[data-node]').forEach((n) =>
+        n.classList.toggle('active', n.getAttribute('data-node') === this.state),
+      );
+      this.querySelectorAll('[data-edge]').forEach((e) =>
+        e.classList.toggle('taken', e.getAttribute('data-edge') === takenEdge),
+      );
+
+      const log = this.querySelector('[data-log]')!;
+      if (this.step === 0) log.replaceChildren();
+      const li = document.createElement('li');
+      li.textContent = message;
+      log.append(li);
+      log.scrollTop = log.scrollHeight;
+      this.step++;
+
+      const controls = this.querySelector('[data-controls]')!;
+      controls.replaceChildren();
+      const options = TRANSITIONS[this.state] ?? [];
+      for (const t of options) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = t.event;
+        b.addEventListener('click', () => this.fire(t));
+        controls.append(b);
+      }
+      if (options.length === 0) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = 'reset';
+        b.addEventListener('click', () => {
+          this.state = 'pending';
+          this.step = 0;
+          this.render(null, 'Task created.');
+        });
+        controls.append(b);
+      }
+    }
+  }
+
+  customElements.define('task-lifecycle', TaskLifecycle);
+</script>

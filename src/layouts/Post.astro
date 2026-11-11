@@ -1,0 +1,49 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import type { MarkdownHeading } from 'astro';
+import Base from './Base.astro';
+import { formatDate } from '../lib/posts';
+
+interface Props {
+  post: CollectionEntry<'posts'>;
+  headings: MarkdownHeading[];
+}
+
+const { post, headings } = Astro.props;
+const { title, description, date, updated, authors, draft } = post.data;
+const toc = headings.filter((h) => h.depth === 2);
+---
+
+<Base title={title} description={description} ogType="article">
+  <article class="post">
+    <header class="post-header">
+      {draft && <p class="draft-badge">Draft — not published</p>}
+      <h1>{title}</h1>
+      <p class="post-description">{description}</p>
+      <p class="post-meta">
+        {authors.length > 0 && <span>{authors.join(', ')} · </span>}
+        <time datetime={date.toISOString()}>{formatDate(date)}</time>
+        {updated && <span> · Updated <time datetime={updated.toISOString()}>{formatDate(updated)}</time></span>}
+      </p>
+    </header>
+
+    {
+      toc.length > 2 && (
+        <nav class="toc" aria-label="Contents">
+          <p class="toc-title">Contents</p>
+          <ol>
+            {toc.map((h) => (
+              <li>
+                <a href={`#${h.slug}`}>{h.text}</a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )
+    }
+
+    <div class="prose">
+      <slot />
+    </div>
+  </article>
+</Base>

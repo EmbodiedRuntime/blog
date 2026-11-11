@@ -1,0 +1,43 @@
+---
+import Figure from './Figure.astro';
+import { withBase } from '../lib/posts';
+
+// `src` and `poster` are paths under public/ (e.g. "videos/my-post/clip.mp4")
+// or absolute URLs for videos hosted elsewhere (CDN, object storage).
+//
+// mode="player"  — standard controls, loads metadata only (default)
+// mode="ambient" — muted autoplay loop without controls, for short rollouts
+interface Props {
+  src: string;
+  poster?: string;
+  caption?: string;
+  mode?: 'player' | 'ambient';
+  width?: number;
+  height?: number;
+  wide?: boolean;
+  label?: string;
+}
+
+const { src, poster, caption, mode = 'player', width = 1280, height = 720, wide, label } = Astro.props;
+const ambient = mode === 'ambient';
+const type = src.endsWith('.webm') ? 'video/webm' : 'video/mp4';
+---
+
+<Figure caption={caption} wide={wide}>
+  <video
+    class="video"
+    width={width}
+    height={height}
+    poster={poster && withBase(poster)}
+    preload={ambient ? 'auto' : 'metadata'}
+    playsinline
+    controls={!ambient}
+    autoplay={ambient}
+    muted={ambient}
+    loop={ambient}
+    aria-label={label ?? caption}
+  >
+    <source src={withBase(src)} type={type} />
+    Your browser does not support embedded video. <a href={withBase(src)}>Download the clip</a>.
+  </video>
+</Figure>

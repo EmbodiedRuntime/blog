@@ -1,0 +1,221 @@
+---
+// How control flow runs in surveyed systems: five run-time structures, plus a second axis —
+// whether a development loop (research mode) rewrites the program between runs.
+import '../../../../components/diagram/diagram.css';
+
+type Ex = { name: string; dev?: boolean; note?: string };
+const rows: { key: string; title: string; sub: string; examples: Ex[] }[] = [
+  {
+    key: 'fixed',
+    title: 'Fixed loop, fixed tools',
+    sub: 'Harness code fixes the steps; the model fills in values at set points.',
+    examples: [{ name: 'MOKA' }, { name: 'VoxPoser' }, { name: 'ReKep' }],
+  },
+  {
+    key: 'hier',
+    title: 'Two-level hierarchy',
+    sub: 'The model gives an intent; a learned low-level policy carries it out.',
+    examples: [{ name: 'HAMSTER' }, { name: 'ENPIRE', dev: true, note: 'deployed policy' }],
+  },
+  {
+    key: 'step',
+    title: 'Model steps through calls',
+    sub: 'The model picks each next call after seeing the last result.',
+    examples: [{ name: 'Guava' }, { name: 'Agent as Policy' }, { name: 'CaP-X', note: 'multi-turn' }],
+  },
+  {
+    key: 'program',
+    title: 'Write a program, then run it',
+    sub: 'The model writes the control flow; an interpreter runs it without the model.',
+    examples: [{ name: 'Code as Policies' }, { name: 'CaP-X', note: 'single-turn' }, { name: 'GaP', dev: true }, { name: 'ASPIRE', dev: true }],
+  },
+  {
+    key: 'concurrent',
+    title: 'Concurrent, event-driven',
+    sub: 'Several loops run at different rates; events trigger planning and preemption.',
+    examples: [{ name: 'TypeGo' }],
+  },
+];
+---
+
+<div class="cfm">
+  <div class="cfm-rows">
+    {
+      rows.map((r) => (
+        <div class="cfm-row">
+          <svg class={`cfm-icon dg`} viewBox="0 0 84 44" aria-hidden="true">
+            {r.key === 'fixed' && (
+              <g>
+                <rect class="ic-box" x="8" y="10" width="68" height="24" rx="12" />
+                <path class="ic-line" d="M60,10 a12,12 0 0 1 0,24" />
+                <circle class="ic-model" cx="42" cy="22" r="6" />
+              </g>
+            )}
+            {r.key === 'hier' && (
+              <g>
+                <rect class="ic-model-box" x="24" y="2" width="36" height="14" rx="4" />
+                <path class="ic-line" d="M42,16 L42,26" />
+                <rect class="ic-learned" x="18" y="28" width="48" height="14" rx="4" />
+              </g>
+            )}
+            {r.key === 'step' && (
+              <g>
+                <circle class="ic-model" cx="20" cy="22" r="9" />
+                <rect class="ic-box" x="52" y="13" width="24" height="18" rx="4" />
+                <path class="ic-line" d="M30,18 L50,18" />
+                <path class="ic-line" d="M50,26 L30,26" />
+              </g>
+            )}
+            {r.key === 'program' && (
+              <g>
+                <circle class="ic-model" cx="14" cy="22" r="8" />
+                <path class="ic-line" d="M23,22 L33,22" />
+                <rect class="ic-box" x="35" y="6" width="26" height="32" rx="3" />
+                <path class="ic-thin" d="M40,14 L56,14 M40,20 L52,20 M44,26 L56,26 M44,32 L54,32" />
+                <path class="ic-line" d="M62,22 L74,22" />
+                <rect class="ic-box" x="74" y="16" width="8" height="12" rx="2" />
+              </g>
+            )}
+            {r.key === 'concurrent' && (
+              <g>
+                <path class="ic-line" d="M8,10 L76,10" />
+                <path class="ic-line dash" d="M8,22 L76,22" />
+                <path class="ic-line dot" d="M8,34 L76,34" />
+                <circle class="ic-event" cx="48" cy="22" r="4" />
+              </g>
+            )}
+          </svg>
+          <div class="cfm-text">
+            <p class="cfm-title">{r.title}</p>
+            <p class="cfm-sub">{r.sub}</p>
+          </div>
+          <div class="cfm-ex">
+            {r.examples.map((e) => (
+              <span class:list={['cfm-chip', { dev: e.dev }]}>
+                {e.name}
+                {e.note && <span class="cfm-note"> · {e.note}</span>}
+                {e.dev && <span class="cfm-dev" title="A development loop rewrites it between runs">↻</span>}
+              </span>
+            ))}
+          </div>
+        </div>
+      ))
+    }
+  </div>
+  <p class="cfm-legend">
+    <span class="cfm-chip dev">↻</span> a development loop rewrites the program, graph, or policy between runs.
+  </p>
+</div>
+
+<style>
+  .cfm {
+    font-size: 0.85rem;
+  }
+  .cfm-rows {
+    display: grid;
+    gap: 0.5rem;
+  }
+  .cfm-row {
+    display: grid;
+    grid-template-columns: 84px minmax(0, 1.25fr) minmax(0, 1fr);
+    gap: 0.9rem;
+    align-items: center;
+    padding: 0.5rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+  .cfm-icon {
+    width: 84px;
+    height: 44px;
+  }
+  .cfm-title {
+    margin: 0;
+    font-weight: 700;
+  }
+  .cfm-sub {
+    margin: 0.1rem 0 0;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+  .cfm-ex {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+  }
+  .cfm-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .cfm-chip.dev {
+    border-color: var(--dg-ok);
+  }
+  .cfm-note {
+    font-weight: 400;
+    color: var(--muted);
+  }
+  .cfm-dev {
+    color: var(--dg-ok);
+    font-weight: 700;
+  }
+  .cfm-legend {
+    margin: 0.6rem 0 0;
+    color: var(--muted);
+  }
+  .cfm-legend .cfm-chip {
+    color: var(--dg-ok);
+  }
+  .ic-box {
+    fill: var(--bg);
+    stroke: var(--fg);
+    stroke-width: 1.5;
+  }
+  .ic-model,
+  .ic-model-box {
+    fill: color-mix(in srgb, var(--accent) 30%, var(--bg));
+    stroke: var(--accent);
+    stroke-width: 1.5;
+  }
+  .ic-learned {
+    fill: color-mix(in srgb, var(--muted) 20%, var(--bg));
+    stroke: var(--muted);
+    stroke-width: 1.5;
+  }
+  .ic-line {
+    fill: none;
+    stroke: var(--fg);
+    stroke-width: 1.8;
+  }
+  .ic-line.dash {
+    stroke-dasharray: 6 4;
+  }
+  .ic-line.dot {
+    stroke-dasharray: 2 4;
+  }
+  .ic-thin {
+    fill: none;
+    stroke: var(--muted);
+    stroke-width: 1.4;
+  }
+  .ic-event {
+    fill: var(--dg-warn);
+  }
+  @media (max-width: 640px) {
+    .cfm-row {
+      grid-template-columns: 64px 1fr;
+    }
+    .cfm-icon {
+      width: 64px;
+    }
+    .cfm-ex {
+      grid-column: 1 / -1;
+    }
+  }
+</style>

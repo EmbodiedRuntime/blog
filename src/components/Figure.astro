@@ -1,0 +1,22 @@
+---
+// Wraps any figure content (image, video, interactive widget) with a numbered-style caption.
+// Use `wide` to let the figure extend past the text column on large screens.
+interface Props {
+  caption?: string;
+  wide?: boolean;
+  id?: string;
+}
+
+const { caption, wide = false, id } = Astro.props;
+---
+
+<figure class:list={['figure', { wide }]} id={id}>
+  <slot />
+  {
+    (caption || Astro.slots.has('caption')) && (
+      <figcaption>
+        <slot name="caption">{caption}</slot>
+      </figcaption>
+    )
+  }
+</figure>

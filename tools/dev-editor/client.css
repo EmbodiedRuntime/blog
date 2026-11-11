@@ -1,0 +1,178 @@
+/* Dev-only styles for the in-page editor. */
+
+/* Wrappers must not affect layout. */
+.src-block {
+  display: contents;
+}
+.prose > .src-block > * {
+  max-width: var(--measure);
+  margin-left: auto;
+  margin-right: auto;
+}
+.prose > .src-block > .figure.wide {
+  max-width: var(--wide);
+}
+
+.ed-editing > * {
+  outline: 2px dashed var(--accent);
+  outline-offset: 4px;
+  opacity: 0.45;
+}
+
+.ed-bar[hidden] {
+  display: none;
+}
+.ed-bar {
+  position: absolute;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ed-bar button,
+.ed-panel button,
+.ed-toggle {
+  font: 500 12px/1.2 var(--font-body);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  cursor: pointer;
+}
+.ed-bar button:hover,
+.ed-panel button:hover,
+.ed-toggle:hover {
+  color: var(--fg);
+  border-color: var(--accent);
+}
+
+.ed-panel {
+  max-width: var(--measure);
+  margin: 0.75rem auto 1.25rem;
+  padding: 0.75rem;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.ed-panel-comment {
+  border-color: #d4a72c;
+}
+.ed-textarea {
+  width: 100%;
+  font: 13px/1.55 var(--font-mono);
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem 0.6rem;
+  resize: vertical;
+}
+.ed-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+.ed-status {
+  flex: 1;
+  font-size: 12px;
+  color: var(--muted);
+}
+.ed-panel button.ed-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-fg);
+}
+
+.ed-toggle {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 50;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.12);
+}
+
+/* Writing notes ({/* … *\/}) and comments ({/* @comment … *\/}) */
+.dev-note,
+.dev-comment {
+  max-width: var(--measure);
+  margin: 1rem auto;
+  padding: 0.6rem 0.8rem;
+  border-radius: 6px;
+  font: 12.5px/1.55 var(--font-mono);
+  white-space: pre-wrap;
+}
+.dev-note {
+  color: var(--muted);
+  background: var(--surface);
+  border-left: 3px solid var(--border);
+}
+.dev-comment {
+  color: var(--fg);
+  background: color-mix(in srgb, #d4a72c 14%, var(--bg));
+  border-left: 3px solid #d4a72c;
+}
+.dev-note p,
+.dev-comment p {
+  margin: 0;
+}
+.ed-hide-notes .src-note,
+.ed-hide-notes .src-comment {
+  display: none;
+}
+.dev-comment::before {
+  content: 'Comment';
+  display: block;
+  font-weight: 700;
+  color: #9a6700;
+}
+
+/* in-place text editing */
+.ed-rich {
+  cursor: text;
+  border-radius: 4px;
+}
+.ed-rich:hover {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+.ed-active,
+.ed-active:hover {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  background: var(--bg);
+}
+.ed-mini {
+  position: absolute;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.12);
+}
+.ed-mini button {
+  font: 600 12px/1.2 var(--font-body);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--fg);
+  cursor: pointer;
+}
+.ed-mini button:hover {
+  border-color: var(--border);
+}
+.ed-mini button.ed-primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+}
+.ed-mini-status {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 0 6px;
+}

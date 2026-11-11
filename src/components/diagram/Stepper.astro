@@ -1,0 +1,137 @@
+---
+// Step-through wrapper for diagrams. Inside the slot, any element with
+//   data-step="n"   is shown from step n on (and highlighted at step n),
+//   data-until="n"  is shown only before step n.
+// `steps` are the captions shown under the figure for each step (step 0 first).
+// Plays automatically once while visible; Prev / Next / Replay take over.
+import './diagram.css';
+
+interface Props {
+  steps: string[];
+  /** Milliseconds per step while playing. */
+  interval?: number;
+}
+
+const { steps, interval = 2600 } = Astro.props;
+---
+
+<step-figure class="stepper" data-steps={JSON.stringify(steps)} data-interval={interval}>
+  <div class="stepper-stage">
+    <slot />
+  </div>
+  <div class="stepper-bar">
+    <button type="button" data-prev aria-label="Previous step">←</button>
+    <span class="stepper-count" data-count></span>
+    <button type="button" data-next aria-label="Next step">→</button>
+    <button type="button" data-play>Replay</button>
+    <p class="stepper-caption" data-caption aria-live="polite"></p>
+  </div>
+</step-figure>
+
+<style>
+  .stepper {
+    display: block;
+  }
+  .stepper-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem 0.5rem;
+    margin-top: 0.6rem;
+  }
+  .stepper-bar button {
+    font: 500 0.8rem var(--font-body);
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--fg);
+    cursor: pointer;
+  }
+  .stepper-bar button:hover:not(:disabled) {
+    border-color: var(--accent);
+  }
+  .stepper-bar button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .stepper-count {
+    font: 0.8rem var(--font-mono);
+    color: var(--muted);
+    min-width: 2.5rem;
+    text-align: center;
+  }
+  .stepper-caption {
+    flex-basis: 100%;
+    margin: 0.2rem 0 0;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    min-height: 2.7em;
+  }
+</style>
+
+<script>
+  class StepFigure extends HTMLElement {
+    private step = 0;
+    private steps: string[] = [];
+    private timer: number | undefined;
+    private played = false;
+
+    connectedCallback() {
+      this.steps = JSON.parse(this.dataset.steps ?? '[]');
+      this.querySelector('[data-prev]')!.addEventListener('click', () => this.go(this.step - 1, true));
+      this.querySelector('[data-next]')!.addEventListener('click', () => this.go(this.step + 1, true));
+      this.querySelector('[data-play]')!.addEventListener('click', () => this.play());
+
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      if (reduce || !('IntersectionObserver' in window)) {
+        this.go(this.steps.length - 1);
+        return;
+      }
+      this.go(0);
+      const io = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((e) => e.isIntersecting) && !this.played) {
+            this.played = true;
+            this.play();
+          }
+        },
+        { threshold: 0.5 },
+      );
+      io.observe(this);
+    }
+
+    private play() {
+      this.stop();
+      this.go(0);
+      const ms = Number(this.dataset.interval) || 2600;
+      this.timer = window.setInterval(() => {
+        if (this.step >= this.steps.length - 1) return this.stop();
+        this.go(this.step + 1);
+      }, ms);
+    }
+
+    private stop() {
+      if (this.timer !== undefined) window.clearInterval(this.timer);
+      this.timer = undefined;
+    }
+
+    private go(n: number, manual = false) {
+      if (manual) this.stop();
+      this.step = Math.max(0, Math.min(this.steps.length - 1, n));
+      this.querySelectorAll<SVGElement | HTMLElement>('[data-step], [data-until]').forEach((el) => {
+        const from = el.dataset.step !== undefined ? Number(el.dataset.step) : -Infinity;
+        const until = el.dataset.until !== undefined ? Number(el.dataset.until) : Infinity;
+        const visible = this.step >= from && this.step < until;
+        el.classList.toggle('dg-step-hidden', !visible);
+        el.classList.toggle('dg-step-fresh', visible && from === this.step && from > 0);
+      });
+      this.querySelector('[data-caption]')!.textContent = this.steps[this.step] ?? '';
+      this.querySelector('[data-count]')!.textContent = `${this.step + 1} / ${this.steps.length}`;
+      (this.querySelector('[data-prev]') as HTMLButtonElement).disabled = this.step === 0;
+      (this.querySelector('[data-next]') as HTMLButtonElement).disabled = this.step === this.steps.length - 1;
+    }
+  }
+
+  customElements.define('step-figure', StepFigure);
+</script>

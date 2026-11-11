@@ -1,0 +1,175 @@
+---
+// Observability: the same failed run, seen through three kinds of output.
+import '../../../../components/diagram/diagram.css';
+
+// Deterministic filler for the noisy log.
+let seed = 7;
+const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const pick = <T,>(xs: T[]) => xs[Math.floor(rand() * xs.length)];
+const sources = ['camera', 'perception', 'planner', 'arm_ctrl', 'gripper', 'vlm', 'bus'];
+const msgs = [
+  'frame received (1280x720)',
+  'publish /tf (34 transforms)',
+  'joint_states ok',
+  'heartbeat ok',
+  'queue depth 3',
+  'tokens in=2481 out=96',
+  'control loop dt=2.0ms',
+  'pose estimate updated',
+  'gripper width 0.082',
+  'subscriber connected',
+  'trajectory segment sent',
+];
+const noisy: { t: string; level: string; text: string; hit?: boolean }[] = [];
+let t = 12.0;
+for (let i = 0; i < 64; i++) {
+  t += 0.02 + rand() * 0.09;
+  noisy.push({ t: t.toFixed(3), level: pick(['DEBUG', 'DEBUG', 'DEBUG', 'INFO']), text: `${pick(sources)}: ${pick(msgs)}` });
+  if (i === 37) noisy.push({ t: t.toFixed(3), level: 'WARN', text: 'perception: no frames for 1.8 s', hit: true });
+}
+noisy.push({ t: (t + 0.05).toFixed(3), level: 'ERROR', text: 'task failed' });
+---
+
+<div class="dg-panels obs" style="--dg-cols:3">
+  <div>
+    <p class="dg-panel-title">Too little</p>
+    <p class="dg-panel-sub">We know that it failed, not where or why.</p>
+    <pre class="term short"><span class="prompt">$</span> run put_cup_on_tray
+<span class="dim">…</span>
+<span class="err">ERROR task failed</span></pre>
+  </div>
+
+  <div>
+    <p class="dg-panel-title">Too much</p>
+    <p class="dg-panel-sub">Everything is logged; the cause is buried.</p>
+    <div class="term long" aria-label="A long scrolling log with one relevant warning buried among debug lines.">
+      <div class="scroll">
+        {
+          [0, 1].map((copy) => (
+            <div aria-hidden={copy === 1 ? 'true' : undefined}>
+              {noisy.map((l) => (
+                <div class:list={['line', `lv-${l.level.toLowerCase()}`]}>
+                  <span class="dim">{l.t}</span> {l.level.padEnd(5)} {l.text}
+                </div>
+              ))}
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <p class="dg-panel-title">Structured trace</p>
+    <p class="dg-panel-sub">Each failure linked to its cause.</p>
+    <ul class="term trace">
+      <li><span class="err">✕</span> task <b>put cup on tray</b></li>
+      <li class="d1">✓ decide: grasp cup <span class="dim">VLM · obs @12.4 s</span></li>
+      <li class="d1 cause"><span class="err">✕</span> grasp(cup): <span class="err">missed object</span></li>
+      <li class="d2 cause">input cup.pose <span class="warn">age 1.8 s · stale</span></li>
+      <li class="d3 cause">perception: <span class="warn">no frames 12.1–13.9 s</span></li>
+      <li class="d4 cause">camera driver restarted <span class="dim">@12.1 s</span></li>
+    </ul>
+  </div>
+</div>
+
+<style>
+  .term {
+    margin: 0;
+    height: 172px;
+    padding: 0.6rem 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font: 11.5px/1.6 var(--font-mono);
+    color: var(--fg);
+    overflow: hidden;
+  }
+  .short {
+    white-space: pre-wrap;
+  }
+  .prompt,
+  .dim {
+    color: var(--muted);
+  }
+  .err {
+    color: var(--dg-fail);
+    font-weight: 700;
+  }
+  .warn {
+    color: var(--dg-warn);
+  }
+
+  .long {
+    position: relative;
+  }
+  .long::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 40px;
+    background: linear-gradient(transparent, var(--surface));
+  }
+  .scroll {
+    animation: scroll-log 22s linear infinite;
+  }
+  .line {
+    white-space: nowrap;
+  }
+  .lv-debug {
+    color: var(--muted);
+  }
+  .lv-error {
+    color: var(--dg-fail);
+  }
+  @keyframes scroll-log {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(-50%);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .scroll {
+      animation: none;
+    }
+    .long {
+      overflow-y: auto;
+    }
+  }
+
+  .trace {
+    list-style: none;
+  }
+  .trace li {
+    position: relative;
+    padding: 0.1rem 0 0.1rem 0.4rem;
+    white-space: nowrap;
+  }
+  .trace .d1 {
+    margin-left: 1rem;
+  }
+  .trace .d2 {
+    margin-left: 2rem;
+  }
+  .trace .d3 {
+    margin-left: 3rem;
+  }
+  .trace .d4 {
+    margin-left: 4rem;
+  }
+  .trace li.d1::before,
+  .trace li.d2::before,
+  .trace li.d3::before,
+  .trace li.d4::before {
+    content: '└';
+    position: absolute;
+    left: -0.8rem;
+    color: var(--muted);
+  }
+  .trace .cause {
+    background: color-mix(in srgb, var(--dg-fail) 8%, transparent);
+    border-left: 2px solid var(--dg-fail);
+  }
+</style>

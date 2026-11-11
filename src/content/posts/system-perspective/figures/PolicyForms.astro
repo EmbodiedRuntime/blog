@@ -1,0 +1,83 @@
+---
+// Two common ways current work puts a large model in the robot loop.
+// Tool calling is treated as a special case of program execution: a tool call is a one-line
+// program, and code as policy writes longer ones with control flow.
+import Graph from '../../../../components/diagram/Graph.astro';
+import type { GEdge, GNode } from '../../../../components/diagram/graph';
+
+const W = 400;
+const H = 318;
+const X = W / 2;
+const top: GNode = { id: 'obs', x: X, y: 28, label: 'Observation', kind: 'io', w: 150, h: 38 };
+// The bottom node is the action the system emits; the world's response is not part of the designed system.
+const bottom: GNode = { id: 'act', x: X, y: 290, label: 'Action', kind: 'io', w: 150, h: 38 };
+
+const e2e = {
+  nodes: [top, { id: 'policy', x: X, y: 159, w: 170, h: 84, label: 'Policy', sub: 'one forward pass', kind: 'model' }, bottom] as GNode[],
+  edges: [
+    { from: 'obs', to: 'policy' },
+    { from: 'policy', to: 'act' },
+  ] as GEdge[],
+};
+
+const prog = {
+  nodes: [
+    top,
+    { id: 'vlm', x: X, y: 88, w: 170, label: 'VLM', sub: 'writes a program', kind: 'model' },
+    { id: 'program', x: X, y: 172, w: 236, h: 112, label: '', kind: 'program' },
+    bottom,
+  ] as GNode[],
+  edges: [
+    { from: 'obs', to: 'vlm' },
+    { from: 'vlm', to: 'program' },
+    { from: 'program', to: 'act', label: 'run code' },
+    { from: 'program', to: 'vlm', d: `M${X + 121},166 C${W - 16},166 ${W - 16},88 ${X + 88},88`, labelAt: { x: W - 32, y: 70 }, label: 'results', dashed: true },
+  ] as GEdge[],
+};
+
+// Program box contents: a one-line tool call, then a longer program with control flow.
+const PX = X - 108;
+const code = [
+  'for o in find("cup"):',
+  '  grasp(o)',
+  '  if not holding(o):',
+  '    regrasp(o)',
+  '  place(o, "tray")',
+];
+---
+
+<div class="dg-panels dg-boxed" style="--dg-cols:2">
+  <div>
+    <p class="dg-panel-title">End-to-end policy</p>
+    <p class="dg-panel-sub">A model maps each observation directly to an action.</p>
+    <Graph nodes={e2e.nodes} edges={e2e.edges} width={W} height={H} label="End-to-end policy: observation, one forward pass of a policy, action." />
+  </div>
+  <div>
+    <p class="dg-panel-title">Model + program execution</p>
+    <p class="dg-panel-sub">A model writes programs; a tool call is the one-line case.</p>
+    <Graph nodes={prog.nodes} edges={prog.edges} width={W} height={H} label="Model plus program execution: a VLM writes a program, from a single tool call to code with control flow; the program runs and produces actions; results go back to the VLM.">
+      <text class="dg-mono line" x={PX} y="136">grasp(cup)</text>
+      <text class="dg-note" x={X + 108} y="136" text-anchor="end">tool calling</text>
+      <line class="divider" x1={PX} y1="146" x2={X + 108} y2="146" />
+      {code.map((c, i) => (
+        <text class="dg-mono code" x={PX} y={162 + i * 14} xml:space="preserve">{c}</text>
+      ))}
+      <text class="dg-note" x={X + 108} y="218" text-anchor="end">code as policy</text>
+    </Graph>
+  </div>
+</div>
+
+<style>
+  .line {
+    font-size: 12.5px;
+    font-weight: 600;
+  }
+  .code {
+    font-size: 10.5px;
+    white-space: pre;
+  }
+  .divider {
+    stroke: var(--border);
+    stroke-dasharray: 3 3;
+  }
+</style>

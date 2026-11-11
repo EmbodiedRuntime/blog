@@ -1,0 +1,30 @@
+---
+import Base from '../layouts/Base.astro';
+import { getPosts, formatDate, withBase } from '../lib/posts';
+
+const posts = await getPosts();
+---
+
+<Base title="Embodied Runtime">
+  <section class="intro">
+    <h1>Embodied Runtime</h1>
+    <p>Notes on runtimes, programming models, and agents for robots.</p>
+  </section>
+
+  <ul class="post-list">
+    {
+      posts.map((post) => (
+        <li>
+          <a href={withBase(`posts/${post.id}/`)}>
+            <h2>
+              {post.data.title}
+              {post.data.draft && <span class="draft-badge">Draft</span>}
+            </h2>
+            <p>{post.data.description}</p>
+            <time datetime={post.data.date.toISOString()}>{formatDate(post.data.date)}</time>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</Base>

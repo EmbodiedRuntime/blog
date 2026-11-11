@@ -1,0 +1,151 @@
+---
+title: 'Understanding Agentic Robotics from a System Perspective'
+description: 'The system around the model decides much of what an agentic robot can do: the three properties it should have, and the two design choices that shape them.'
+date: 2026-10-16
+authors: []
+tags: ['robotics', 'agents', 'system']
+draft: true
+---
+
+import Figure from '../../../components/Figure.astro';
+import TaskLifecycle from './TaskLifecycle.astro';
+import PolicyForms from './figures/PolicyForms.astro';
+import Expressiveness from './figures/Expressiveness.astro';
+import Observability from './figures/Observability.astro';
+import Safety from './figures/Safety.astro';
+import ControlFlowMap from './figures/ControlFlowMap.astro';
+import DataPaths from './figures/DataPaths.astro';
+import CupScene from './figures/CupScene.astro';
+
+
+Vision-language models are now good at spatial understanding, reasoning, and tool use: Gemini 4 Argon ([Google, 2026](#ref-google2026)), GPT-6 Astra in Astranomy ([NVIDIA, 2026](#ref-nvidia2026)), and Agent as Policy ([Jia et al., 2026](#ref-jia2026)), which runs coding agents directly as robot policies, all manipulate objects from instructions.
+
+<Figure
+  wide
+  caption="Two ways to put a large model in the robot loop: an end-to-end policy maps observations to actions; otherwise the model writes programs, from a single tool call to code with branches and loops."
+>
+  <PolicyForms />
+</Figure>
+
+Most reviews ask how capable the model is and how to train or prompt it ([Qin et al., 2026](#ref-qin2026)); Li and Yao ([2026](#ref-li2026)) map the agent–environment loop. This post is about the software system around the model. Our test: if swapping the framework while keeping the model changes a property, the property belongs to the system. Whether the VLM recognizes a new cup is about the model; whether a new decision can interrupt a reach under way, or a command that would drive the arm into the table can reach the motors, is about the system.
+
+We name three properties we want from that system, and the two design choices that shape them most.
+
+## A Running Example
+
+The robot is asked to put a cup on a tray, and halfway through the grasp, someone nudges the cup aside.
+
+In a *ReAct-style* system ([Yao et al., 2023](#ref-yao2023)) the model calls one tool at a time, such as `get_position(cup)` and then `grasp(cup)`, and reads each result. In a *code-as-policy* system it writes a short program that calls such tools. A program handles the nudge only if the model anticipated it; a ReAct loop notices only after `grasp` returns. Neither can interrupt an action in progress, and that is a limit of the system, not of the model.
+
+<Figure caption="The running example, from above. Left: a blocking grasp reaches for the old position and closes on nothing before the system looks again. Right: a running grasp task is redirected and follows the cup.">
+  <CupScene />
+</Figure>
+
+## Three Properties
+
+### Expressiveness
+
+Can the system express the logic a task needs, and give each decision the information it needs?
+
+**Logic.** Branches, loops, and reuse come free with any programming language. What a plain program lacks is logic that spans physical time: a slip monitor beside a grasp, a handler that fires when the cup moves, an action that continues while the model thinks. That depends on the runtime. The model in Guava ([Liu et al., 2026](#ref-liu2026)), for instance, works through nine fixed tools one call at a time, so a parallel monitor cannot be expressed at all.
+
+<Figure wide caption="Robot tasks need control structures of increasing richness: a single path, branches and loops, and concurrent tasks redirected by events. A system is expressive when the richer ones are as natural to write as the simple one.">
+  <Expressiveness />
+</Figure>
+
+**Information.** A model knows only what its tools return, and whoever repairs a failed program, a person or a coding agent, needs to know what happened. ASPIRE ([Lu et al., 2026](#ref-lu2026)) records every primitive call with its inputs, outputs, and keyframes; adding this trace alone raises its success on LIBERO-Pro from 14% to 62%.
+
+<Figure wide caption="The same failed run three ways. An error line hides the cause; a full log buries it; a structured trace links the failed action to the decision and the data behind it.">
+  <Observability />
+</Figure>
+
+### Efficiency
+
+**Utilization**: if every call blocks, the arm waits while the model thinks and the model waits while the arm moves. In Agent as Policy, about 80 seconds of motion overlapped with generation under Codex CLI and none under Claude Code, a difference of harness, not model. **Feedback**: when the cup is nudged, how long does the arm keep reaching for the old position? TypeGo ([G. Chen et al., 2026](#ref-chen2026typego)) runs reflexes at 100 Hz, ReKep ([Huang et al., 2024](#ref-huang2024)) re-solves its constraints at about 10 Hz, and HAMSTER ([Li et al., 2025](#ref-li2025)) plans a path once per episode and cannot adjust it.
+
+### Safety
+
+A failed grasp can be retried; an arm that sweeps the cup through the table, or hits the person who nudged it, cannot be undone. A safe system catches a bad command from any component, which takes three things:
+
+1. **Identification**: recognizing that a command or state is dangerous.
+2. **Control authority**: the power to block a command and stop the program that issued it.
+3. **Fallback**: a behavior, verified in advance, that brings the robot to a safe state.
+
+Current systems implement pieces inside one component: Code as Policies ([Liang et al., 2023](#ref-liang2023)) rejects `exec` in generated code, ReKep keeps targets in the workspace, and Agent as Policy checks every request against workspace and motion limits. None we surveyed has a safety layer independent of both the model and the generated code.
+
+<Figure caption="A model or program emits a command that would cause irreversible damage. The system identifies it, blocks it and stops the program, and runs a fallback to a safe state.">
+  <Safety />
+</Figure>
+
+## Two Design Choices
+
+### Managing Control Flow
+
+**How does it run?** Current systems fall into five structures. MOKA ([Liu et al., 2024](#ref-liu2024)), VoxPoser ([Huang et al., 2023](#ref-huang2023)), and ReKep run a fixed loop in which the VLM fills in values; HAMSTER and ENPIRE ([Xiao et al., 2026](#ref-xiao2026)) are two-level hierarchies; in Guava, CaP-X ([Fu et al., 2026](#ref-fu2026)), and Agent as Policy the model steps through calls; Code as Policies, ASPIRE, and GaP ([K. Chen et al., 2026](#ref-chen2026gap)) write a program and run it without the model; TypeGo is a concurrent, event-driven runtime.
+
+<Figure wide caption="How control flow runs in surveyed systems.">
+  <ControlFlowMap />
+</Figure>
+
+**Who decides, and what triggers the next step?** Decisions are written in a program or made by the model step by step; steps follow one another or are triggered by events. One system can use all four combinations:
+
+|  | Programmatic decisions | Model-mediated decisions |
+|---|---|---|
+| **Sequential** | Skill composition; code as policy | ReAct; explicit VLM calls |
+| **Event-driven** | Sensor-triggered rules and recovery | Event-triggered VLM replanning |
+
+**What is the unit of execution?** A reach takes seconds, and the cup may move meanwhile, so the unit is a task: an action that keeps running after the call that started it returns, and can be updated or cancelled. (Code here uses the API of roborun, described in [a companion post](../roborun/).)
+
+```python
+g = start(grasp("cup"))     # returns at once; the grasp keeps running
+g.update(target=new_pose)   # redirect it while it runs
+await g.cancel_and_wait()   # returns when the arm is at rest
+```
+
+Cancelling must be distinct from having stopped, since control authority depends on it. A program changed mid-run should likewise let the step under way finish and continue from shared state, not from the old program's variables.
+
+<Figure caption="A task's lifecycle. Requesting cancellation moves a task to cancelling, not cancelled: the arm is still moving. Click the transitions to step through it.">
+  <TaskLifecycle />
+</Figure>
+
+### Managing Data
+
+Should a tool be a **function call** or a **service**? A function call, like Guava's `get_position`, halts the caller and keeps nothing between calls, so a segmenter called per frame cannot tell whether this cup is the last one. A service keeps its state, answers while the program works, and says how fresh each answer is.
+
+<Figure wide caption="The same segmentation model as a function call, which halts the program and keeps nothing, and as a service, which keeps its state and answers while the program works.">
+  <DataPaths />
+</Figure>
+
+Shared state needs the same care: each value should say when it was observed and by whom, and a reader should be able to refuse one that is too old.
+
+```python
+cup = world.get("cup", max_age=0.3)   # StaleData if older
+```
+
+Messaging layers and frameworks such as ROS 2, Ray, and Temporal each cover part of this, but none says who may command the arm, when a command goes stale, or how conflicting behaviors are arbitrated.
+
+## Future Work
+
+Imagine every model call were instant. The arm would still take seconds to move, the cup could still be nudged meanwhile, a cancelled motion would still have to stop, and a bad command would still have to be caught. Stronger models make the software around them thinner; they do not remove the need for the system. Open questions remain: how to trace and undo a change to a running program, where the boundary between thin tools and rich skills should sit, and whether a safety layer independent of the model can still allow useful behavior. [roborun](../roborun/) is our first answer.
+
+> A good system should not prescribe how intelligent a robot agent must be. It should provide the abstractions to express, coordinate, and evolve different forms of robotic intelligence, and keep the robot safe while it does.
+
+## References
+
+- <span id="ref-chen2026typego" />Chen, G., Schott, A., & Zhong, L. (2026). TypeGo: An OS runtime for embodied agents. *arXiv preprint*. [arXiv:2607.05482](https://arxiv.org/abs/2607.05482)
+- <span id="ref-chen2026gap" />Chen, K., Xie, S., Fu, L., et al. (2026). GaP: A graph-as-policy multi-agent self-learning harness for variational automation tasks. *arXiv preprint*. [arXiv:2607.05369](https://arxiv.org/abs/2607.05369)
+- <span id="ref-fu2026" />Fu, L., et al. (2026). CaP-X: A framework for benchmarking and improving coding agents for robot manipulation. In *International Conference on Machine Learning (ICML)*. [arXiv:2603.22435](https://arxiv.org/abs/2603.22435)
+- <span id="ref-google2026" />Google. (2026). Gemini 4 Argon for robotics. *Google Developers Blog*. [developers.googleblog.com](https://developers.googleblog.com/gemini-4-argon-for-robotics/)
+- <span id="ref-huang2023" />Huang, W., Wang, C., Zhang, R., Li, Y., Wu, J., & Fei-Fei, L. (2023). VoxPoser: Composable 3D value maps for robotic manipulation with language models. In *Conference on Robot Learning (CoRL)*. [arXiv:2307.05973](https://arxiv.org/abs/2307.05973)
+- <span id="ref-huang2024" />Huang, W., Wang, C., Li, Y., Zhang, R., & Fei-Fei, L. (2024). ReKep: Spatio-temporal reasoning of relational keypoint constraints for robotic manipulation. In *Conference on Robot Learning (CoRL)*. [arXiv:2409.01652](https://arxiv.org/abs/2409.01652)
+- <span id="ref-jia2026" />Jia, M., et al. (2026). Agent as policy for robotic manipulation. *arXiv preprint*. [arXiv:2609.12541](https://arxiv.org/abs/2609.12541)
+- <span id="ref-li2026" />Li, X., & Yao, S. (2026). Agent robotic systems [Blog post]. [xirui-li.github.io](https://xirui-li.github.io/blog/posts/agent-robotic-systems/)
+- <span id="ref-li2025" />Li, Y., Deng, Y., Zhang, J., et al. (2025). HAMSTER: Hierarchical action models for open-world robot manipulation. In *International Conference on Learning Representations (ICLR)*. [arXiv:2502.05485](https://arxiv.org/abs/2502.05485)
+- <span id="ref-liang2023" />Liang, J., Huang, W., Xia, F., Xu, P., Hausman, K., Ichter, B., Florence, P., & Zeng, A. (2023). Code as policies: Language model programs for embodied control. In *IEEE International Conference on Robotics and Automation (ICRA)*. [arXiv:2209.07753](https://arxiv.org/abs/2209.07753)
+- <span id="ref-liu2024" />Liu, F., Fang, K., Abbeel, P., & Levine, S. (2024). MOKA: Open-world robotic manipulation through mark-based visual prompting. In *Robotics: Science and Systems (RSS)*. [arXiv:2403.03174](https://arxiv.org/abs/2403.03174)
+- <span id="ref-liu2026" />Liu, H., Li, X., Yao, S., et al. (2026). Guava: Distilling frontier VLMs into a compact agent through a robotic manipulation harness. *arXiv preprint*. [arXiv:2606.18363](https://arxiv.org/abs/2606.18363)
+- <span id="ref-lu2026" />Lu, R., Wu, Y., Kou, E., et al. (2026). ASPIRE: Agentic skills discovery for robotics. *arXiv preprint*. [arXiv:2607.00272](https://arxiv.org/abs/2607.00272)
+- <span id="ref-nvidia2026" />NVIDIA. (2026). Astranomy [Technical report]. [research.nvidia.com](https://research.nvidia.com/labs/srl/projects/astranomy/)
+- <span id="ref-qin2026" />Qin, C., Wu, D., Feng, K., et al. (2026). Towards agentic robots: Model, data, environment, and harness. *arXiv preprint*. [arXiv:2610.20442](https://arxiv.org/abs/2610.20442)
+- <span id="ref-xiao2026" />Xiao, W., et al. (2026). ENPIRE: Agentic robot policy self-improvement in the real world. *arXiv preprint*. [arXiv:2606.19980](https://arxiv.org/abs/2606.19980)
+- <span id="ref-yao2023" />Yao, S., Zhao, J., Yu, D., Du, N., Shafran, I., Narasimhan, K., & Cao, Y. (2023). ReAct: Synergizing reasoning and acting in language models. In *International Conference on Learning Representations (ICLR)*. [arXiv:2210.03629](https://arxiv.org/abs/2210.03629)

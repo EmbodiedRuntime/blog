@@ -1,0 +1,219 @@
+/* Shared diagram styles. Every class is prefixed `dg-`. Colors come from the theme tokens. */
+
+:root {
+  --dg-fail: #cf222e;
+  --dg-ok: #1a7f37;
+  --dg-warn: #9a6700;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --dg-fail: #ff7b72;
+    --dg-ok: #3fb950;
+    --dg-warn: #d29922;
+  }
+}
+
+.dg-scroll {
+  overflow-x: auto;
+}
+.dg {
+  display: block;
+  width: 100%;
+  height: auto;
+  font-family: var(--font-body);
+}
+
+/* nodes */
+.dg-node rect {
+  fill: var(--bg);
+  stroke: var(--muted);
+  stroke-width: 1.5;
+}
+.dg-model rect {
+  fill: color-mix(in srgb, var(--accent) 14%, var(--bg));
+  stroke: var(--accent);
+}
+.dg-program rect {
+  fill: var(--bg);
+  stroke: var(--fg);
+}
+.dg-io rect {
+  fill: var(--surface);
+  stroke: var(--border);
+}
+.dg-runtime rect {
+  fill: color-mix(in srgb, var(--muted) 12%, var(--bg));
+  stroke: var(--muted);
+}
+.dg-state rect {
+  fill: var(--bg);
+  stroke: var(--muted);
+  stroke-dasharray: 5 4;
+}
+.dg-ghost rect {
+  fill: none;
+  stroke: var(--border);
+  stroke-dasharray: 4 4;
+}
+.dg-node.dg-failed rect {
+  stroke: var(--dg-fail);
+  fill: color-mix(in srgb, var(--dg-fail) 10%, var(--bg));
+}
+
+.dg text {
+  fill: var(--fg);
+}
+.dg-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+.dg-sub,
+.dg-note {
+  font-size: 11.5px;
+  fill: var(--muted) !important;
+}
+.dg-title {
+  font-size: 13px;
+  font-weight: 700;
+}
+.dg-mono {
+  font-family: var(--font-mono);
+}
+
+/* edges */
+.dg-edge path {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
+}
+.dg-dashed path {
+  stroke-dasharray: 5 4;
+}
+.dg-tone-accent path {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.dg-tone-fail path {
+  stroke: var(--dg-fail);
+}
+.dg-head-muted {
+  fill: var(--muted);
+}
+.dg-head-accent {
+  fill: var(--accent);
+}
+.dg-head-fail {
+  fill: var(--dg-fail);
+}
+.dg-edge-label {
+  font-size: 11.5px;
+  fill: var(--muted) !important;
+  paint-order: stroke;
+  stroke: var(--bg);
+  stroke-width: 5px;
+  stroke-linejoin: round;
+}
+.dg-tone-accent .dg-edge-label {
+  fill: var(--accent) !important;
+}
+.dg-tone-fail .dg-edge-label {
+  fill: var(--dg-fail) !important;
+}
+
+/* badges drawn via slot */
+.dg-badge rect {
+  stroke: none;
+}
+.dg-badge text {
+  font-size: 11px;
+  font-weight: 700;
+}
+.dg-badge-fail rect {
+  fill: var(--dg-fail);
+}
+.dg-badge-ok rect {
+  fill: var(--dg-ok);
+}
+.dg-badge-warn rect {
+  fill: var(--dg-warn);
+}
+.dg-badge text {
+  fill: #fff;
+}
+
+/* stepper visibility */
+.dg-step-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+[data-step],
+[data-until] {
+  transition: opacity 0.35s ease;
+}
+.dg-step-fresh.dg-node rect,
+.dg-step-fresh.dg-edge path {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+/* figure panels */
+.dg-panels {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(var(--dg-cols, 3), minmax(0, 1fr));
+}
+/* Panels drawn as boxes, so the figure's edges are the boxes' edges and line up with the caption. */
+.dg-panels.dg-boxed > * {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem 0.75rem 0.5rem;
+}
+@media (max-width: 640px) {
+  .dg-panels {
+    grid-template-columns: 1fr;
+  }
+  .dg-panels .dg {
+    max-width: 300px;
+    margin: 0 auto;
+  }
+}
+.dg-panel-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-align: center;
+}
+.dg-panel-sub {
+  margin: 0.15rem 0 0.5rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--muted);
+  text-align: center;
+}
+/* failure overlays keep their color when they appear */
+.dg-step-fresh.dg-failed rect {
+  stroke: var(--dg-fail);
+}
+/* denser diagrams with many small nodes */
+.dg-compact .dg-label {
+  font-size: 12.5px;
+}
+/* computed arrowheads (see arrowize in graph.ts) */
+.dg-edge path.dg-head {
+  stroke: none;
+  stroke-dasharray: none;
+}
+.dg-edge .dg-head-muted {
+  fill: var(--muted);
+}
+.dg-edge .dg-head-accent {
+  fill: var(--accent);
+}
+.dg-edge .dg-head-fail {
+  fill: var(--dg-fail);
+}
+.dg-step-fresh.dg-edge path.dg-head {
+  fill: var(--accent);
+  stroke: none;
+}
