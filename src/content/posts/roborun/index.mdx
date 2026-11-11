@@ -86,7 +86,7 @@ All results come from simulation in MuJoCo ([Todorov et al., 2012](#ref-todorov2
 We wrote programs with typical bugs and ran each three ways: with no runtime, where commands go straight to the driver; on roborun; and on roborun with one part switched off.
 
 <Figure wide caption="Failures, grouped by the part that prevents them. Switching off one part brings back exactly its rows; two rows need two parts.">
-  <img src={withBase('images/roborun/ablation.svg')} alt="A matrix of failures against six arms: no runtime, roborun, and roborun without the Gate, the Task, the World, or the Trace. Every failure occurs with no runtime and none with roborun; each ablated part brings back only the failures it prevents." width="900" height="440" style="width:100%;height:auto" />
+  <img src={withBase('images/roborun/ablation.svg')} alt="A matrix of failures against six arms: no runtime, roborun, and roborun without the Gate, the Task, the World, or the Trace. Every failure occurs with no runtime and none with roborun; each ablated part brings back only the failures it prevents." width="990" height="440" style="width:100%;height:auto" />
 </Figure>
 
 Every part prevents failures that no other part does. The same holds for disturbances: when the cup is pushed mid-reach, a grasp task reacts in 0.3 s, where retrying after a miss reacts in 3.3 s. One benefit needs no part in particular: overlapping a 3 s decision with motion (19.6 s against 28.6 s) only needs calls that return at once.
