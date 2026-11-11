@@ -11,27 +11,27 @@ const nodes: GNode[] = [
   { id: 'agent', x: 110, y: 70, w: 176, label: 'Agent', kind: 'model' },
   { id: 'program', x: 110, y: 190, w: 176, label: 'Programs', sub: 'written or generated', kind: 'program' },
   { id: 'e2e', x: 110, y: 310, w: 176, label: 'End-to-end model', sub: 'VLA · WAM, planned', kind: 'ghost' },
-  { id: 'trace', x: 435, y: 70, w: 176, h: 50, label: 'Trace', sub: 'what ran, on which data', className: part },
-  { id: 'task', x: 435, y: 190, w: 176, h: 50, label: 'Task', sub: 'owned, stoppable activity', className: part },
-  { id: 'world', x: 435, y: 310, w: 176, h: 50, label: 'World', sub: 'shared, time-stamped state', className: part },
-  { id: 'gate', x: 740, y: 190, w: 166, h: 50, label: 'Gate', sub: 'checks every command', className: part },
-  { id: 'operator', x: 980, y: 190, w: 128, label: 'Operator', kind: 'io' },
-  { id: 'robot', x: 980, y: 310, w: 150, h: 50, label: 'Robot', sub: 'simulation or real world', kind: 'io' },
+  { id: 'trace', x: 459, y: 70, w: 176, h: 50, label: 'Trace', sub: 'what ran, on which data', className: part },
+  { id: 'task', x: 459, y: 190, w: 176, h: 50, label: 'Task', sub: 'owned, stoppable activity', className: part },
+  { id: 'world', x: 459, y: 310, w: 176, h: 50, label: 'World', sub: 'shared, time-stamped state', className: part },
+  { id: 'gate', x: 764, y: 190, w: 166, h: 50, label: 'Gate', sub: 'checks every command', className: part },
+  { id: 'operator', x: 1004, y: 190, w: 128, label: 'Operator', kind: 'io' },
+  { id: 'robot', x: 1004, y: 310, w: 150, h: 50, label: 'Robot', sub: 'simulation or real world', kind: 'io' },
 ];
 
 const edges: GEdge[] = [
-  { from: 'agent', to: 'task', label: 'start · update · cancel', bend: -14, labelAt: { x: 262, y: 104 } },
-  { from: 'task', to: 'agent', label: 'status · wake', bend: -14, labelAt: { x: 300, y: 168 }, dashed: true, tone: 'accent' },
+  { from: 'agent', to: 'task', label: 'start · update · cancel', bend: -14, labelAt: { x: 274, y: 96 } },
+  { from: 'task', to: 'agent', label: 'status · wake', bend: -14, labelAt: { x: 274, y: 166 }, dashed: true, tone: 'accent' },
   { from: 'agent', to: 'program', label: 'writes', labelAt: { x: 138, y: 130 } },
   { from: 'program', to: 'task' },
   { from: 'e2e', to: 'task', dashed: true },
   { from: 'task', to: 'trace', label: 'every task and read' },
-  { from: 'trace', to: 'agent', label: 'why it failed', dashed: true, tone: 'accent', labelAt: { x: 268, y: 62 } },
-  { from: 'gate', to: 'trace', label: 'every command and verdict', bend: 24, labelAt: { x: 690, y: 112 } },
-  { from: 'world', to: 'task', label: 'changes · max_age', labelAt: { x: 492, y: 252 } },
-  { from: 'task', to: 'gate', label: 'commands + token', labelAt: { x: 590, y: 176 } },
-  { from: 'operator', to: 'gate', label: 'stop · reset', labelAt: { x: 868, y: 176 } },
-  { from: 'gate', to: 'robot', label: 'accepted', labelAt: { x: 850, y: 262 } },
+  { from: 'trace', to: 'agent', label: 'why it failed', dashed: true, tone: 'accent', labelAt: { x: 280, y: 62 } },
+  { from: 'gate', to: 'trace', label: 'every command and verdict', bend: 24, labelAt: { x: 714, y: 112 } },
+  { from: 'world', to: 'task', label: 'changes · max_age', labelAt: { x: 516, y: 252 } },
+  { from: 'task', to: 'gate', label: 'commands + token', labelAt: { x: 614, y: 176 } },
+  { from: 'operator', to: 'gate', label: 'stop · reset', labelAt: { x: 892, y: 176 } },
+  { from: 'gate', to: 'robot', label: 'accepted', labelAt: { x: 874, y: 262 } },
   { from: 'robot', to: 'world', label: 'observations' },
 ];
 ---
@@ -40,19 +40,19 @@ const edges: GEdge[] = [
   nodes={nodes}
   edges={edges}
   x0={10}
-  width={1050}
+  width={1074}
   height={365}
   minWidth={640}
   label="roborun's structure. Left, the policies: an agent, programs written or generated, and end-to-end models (planned). Middle, roborun's four parts: Task, World and Trace in the runtime process, the Gate in its own process. Right, the robot and an operator. An agent calls tools directly or writes programs; policies start, update and cancel tasks and are told their status; tasks read changes from the World and send commands with a token to the Gate, the only process that reaches the robot; the robot's observations flow back into the World; the Trace records every task, read, command and verdict, and tells a policy why a run failed; the operator stops the robot through the Gate."
 >
   <rect slot="back" x="16" y="18" width="188" height="338" rx="10" class="rr-group" />
   <text slot="back" x="26" y="34" class="rr-group-title">Policies</text>
-  <rect slot="back" x="320" y="18" width="528" height="338" rx="10" class="rr-band" />
-  <text slot="back" x="330" y="34" class="rr-band-title">roborun</text>
-  <rect slot="back" x="337" y="40" width="196" height="306" rx="8" class="rr-proc" />
-  <text slot="back" x="345" y="356" class="dg-note" dy="-6">runtime process</text>
-  <rect slot="back" x="647" y="150" width="186" height="80" rx="8" class="rr-proc" />
-  <text slot="back" x="655" y="246" class="dg-note">Gate process</text>
+  <rect slot="back" x="344" y="18" width="528" height="338" rx="10" class="rr-band" />
+  <text slot="back" x="354" y="34" class="rr-band-title">roborun</text>
+  <rect slot="back" x="361" y="40" width="222" height="306" rx="8" class="rr-proc" />
+  <text slot="back" x="369" y="356" class="dg-note" dy="-6">runtime process</text>
+  <rect slot="back" x="671" y="150" width="186" height="80" rx="8" class="rr-proc" />
+  <text slot="back" x="679" y="246" class="dg-note">Gate process</text>
 </Graph>
 
 <style>
